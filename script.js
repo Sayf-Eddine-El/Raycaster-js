@@ -25,8 +25,8 @@ let loadedTexture = {};
 canvas.width = width * row;
 canvas.height = width * column;
 
-canvasWidth = window.screen.width / 2.5;
-canvasHeight = (window.screen.height * 1.77777777778) / 2.5;
+canvasWidth = (width * row) / 1.4;
+canvasHeight = (width * row) / 1.4;
 canvas2.width = canvasWidth;
 canvas2.height = canvasHeight;
 
