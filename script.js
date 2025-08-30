@@ -6,7 +6,7 @@ const playerWidth = 64 / 3;
 const speed = 2;
 
 const fov = 60;
-const resolution = 8;
+const resolution = 10;
 const stepAngle = fov / width / resolution;
 
 const canvas = document.getElementById("canvas");
