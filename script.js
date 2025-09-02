@@ -6,7 +6,7 @@ const playerWidth = 64 / 3;
 const speed = 2;
 
 const fov = 60;
-const resolution = 10;
+const resolution = 4;
 const stepAngle = fov / width / resolution;
 
 const canvas = document.getElementById("canvas");
@@ -19,7 +19,7 @@ const ctx2 = canvas2.getContext("2d");
 
 let fps;
 
-const blockType = ["texture.png", "lucky.jpg"];
+const blockType = ["texture.png", "lucky.jpg", "barrel.png", "gun.png"];
 let loadedTexture = {};
 
 canvas.width = width * row;
@@ -33,6 +33,24 @@ canvas2.height = canvasHeight;
 let firstTime = new Date();
 
 const doublePi = Math.PI * 2;
+
+let objectArray = [
+  {
+    x: 620,
+    y: 85,
+    sprite: "barrel.png",
+  },
+  {
+    x: 90,
+    y: 300,
+    sprite: "barrel.png",
+  },
+  {
+    x: 200,
+    y: 90,
+    sprite: "gun.png",
+  },
+];
 
 const map = [
   // row 0
@@ -74,15 +92,15 @@ const map = [
   // row 2
   { type: 1, block: "texture.png" },
   { type: 0, block: "lucky.jpg" },
-  { type: 1, block: "texture.png" },
+  { type: 0, block: "texture.png" },
   { type: 0, block: "lucky.jpg" },
-  { type: 1, block: "texture.png" },
+  { type: 0, block: "texture.png" },
   { type: 0, block: "lucky.jpg" },
-  { type: 1, block: "texture.png" },
+  { type: 0, block: "texture.png" },
   { type: 0, block: "lucky.jpg" },
   { type: 0, block: "lucky.jpg" },
   { type: 0, block: "lucky.jpg" },
-  { type: 1, block: "texture.png" },
+  { type: 1, block: "lucky.jpg" },
   { type: 0, block: "lucky.jpg" },
   { type: 1, block: "texture.png" },
   { type: 0, block: "lucky.jpg" },
@@ -373,11 +391,18 @@ const draw = () => {
       if (map[j + i * row].type == 1) {
         ctx.fillStyle = "black";
         ctx.fillRect(j * width, i * width, width - 1, width - 1);
+      } else if (map[j + i * row].type == 2) {
+        ctx.fillStyle = "brown";
+        ctx.fillRect(j * width, i * width, width - 1, width - 1);
       } else {
         ctx.fillStyle = "grey";
         ctx.fillRect(j * width, i * width, width - 1, width - 1);
       }
     }
+  }
+  for (let i = 0; i < objectArray.length; i++) {
+    ctx.fillStyle = "orange";
+    ctx.fillRect(objectArray[i].x, objectArray[i].y, 5, 5);
   }
 };
 
@@ -471,10 +496,9 @@ const rayCollision = (startDeg) => {
     if (collisionMap(first_interaction_x_Y, first_interaction_y_Y) == 1) {
       foundY = true;
       break;
-    } else {
-      first_interaction_x_Y += Xp;
-      first_interaction_y_Y += Yp;
     }
+    first_interaction_x_Y += Xp;
+    first_interaction_y_Y += Yp;
   }
 
   // X
@@ -500,6 +524,7 @@ const rayCollision = (startDeg) => {
     first_interaction_y_X += Ypx;
   }
 
+  // Calculate Long of distance
   let slopY = Math.sqrt(
     Math.pow(first_interaction_x_Y - Px, 2) +
       Math.pow(first_interaction_y_Y - Py, 2)
@@ -511,7 +536,7 @@ const rayCollision = (startDeg) => {
 
   if (slopY > slopX) {
     side =
-      first_interaction_y_X - Math.floor(first_interaction_y_X / width) * 64;
+      first_interaction_y_X - Math.floor(first_interaction_y_X / width) * width;
     k = slopX;
     k = k * Math.cos((startDeg * Math.PI) / 180);
     block =
@@ -528,7 +553,7 @@ const rayCollision = (startDeg) => {
     };
   } else {
     side =
-      first_interaction_x_Y - Math.floor(first_interaction_x_Y / width) * 64;
+      first_interaction_x_Y - Math.floor(first_interaction_x_Y / width) * width;
     k = slopY;
     k = k * Math.cos((startDeg * Math.PI) / 180);
     block =
@@ -562,11 +587,11 @@ const updateFunc = () => {
   drawPlayer();
   playerCollision();
   collisionArray = [];
-  for (let i = -fov / 2; i < fov / 2; i = i + stepAngle) {
+  for (let i = -fov / 2; i < fov / 2; i = i + 0.25) {
     const { k, side, block } = drawRay(i);
+
     collisionArray.push({ distance: k, side, block });
   }
-  fpsText.textContent = `fps : ${Math.round(fps)}`;
 
   requestAnimationFrame(updateFunc);
 };
@@ -577,9 +602,16 @@ const updateFunc3d = () => {
   ctx2.fillRect(0, canvasHeight / 2, canvasWidth, canvasHeight);
   ctx2.fillStyle = "#87CEEB";
   ctx2.fillRect(0, 0, canvasWidth, canvasHeight / 2);
+
   const rectWidth = canvasWidth / collisionArray.length;
+
+  let cellDistance = {};
+
+  // wall rendering
   for (let i = 0; i < collisionArray.length; i++) {
     let img = loadedTexture[collisionArray[i].block];
+
+    cellDistance[i] = collisionArray[i].distance;
 
     ctx2.drawImage(
       img,
@@ -593,9 +625,68 @@ const updateFunc3d = () => {
       30000 / collisionArray[i].distance
     );
   }
+
+  // Object rendering
+  for (let j = 0; j < objectArray.length; j++) {
+    let objectImage = loadedTexture[objectArray[j].sprite];
+
+    let deg = player.degree % 360;
+
+    let Px = player.x + playerWidth / 2;
+    let Py = player.y + playerWidth / 2;
+
+    let Sx = objectArray[j].x + width / 4;
+    let Sy = objectArray[j].y + width / 4;
+
+    let angle = (Math.atan2(Sy - Py, Sx - Px) * 180) / Math.PI;
+
+    let relativeAngle = angle - deg;
+
+    if (relativeAngle < -180) {
+      relativeAngle += 360;
+    }
+    if (relativeAngle > 180) {
+      relativeAngle -= 360;
+    }
+
+    let distance = Math.sqrt(Math.pow(Sy - Py, 2) + Math.pow(Sx - Px, 2));
+
+    let screenX = ((fov / 2 + relativeAngle) / fov) * canvasWidth;
+
+    for (let i = 0; i <= Math.floor(width / rectWidth); i++) {
+      let sliceWidth = 15000 / distance / rectWidth / 6;
+      let stripeX = screenX - Math.floor(width / rectWidth) + sliceWidth * i;
+
+      let rayIndex = Math.floor(stripeX / rectWidth);
+
+      if (
+        stripeX >= 0 &&
+        stripeX < canvasWidth &&
+        distance < cellDistance[rayIndex]
+      ) {
+        ctx2.drawImage(
+          objectImage,
+          i * rectWidth * (objectImage.width / width),
+          0,
+          rectWidth,
+          objectImage.height,
+          stripeX,
+          canvasHeight / 2,
+          sliceWidth,
+          15000 / distance
+        );
+      }
+    }
+  }
+
   requestAnimationFrame(updateFunc3d);
 };
 
+// Load Images to avoid bugs
 loadImages();
+
 updateFunc();
 updateFunc3d();
+
+// Show fps
+setInterval(() => (fpsText.textContent = `fps : ${Math.round(fps)}`), 1000);
