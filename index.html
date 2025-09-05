@@ -5,11 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>3D Game</title>
   </head>
-  <body>
+  <body
+    style="
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    "
+  >
     <canvas id="canvas" hidden></canvas>
-    <canvas style="border: 10px solid black" id="canvas2"></canvas>
+    <canvas
+      style="border: 10px solid black; image-rendering: pixelated"
+      id="canvas2"
+    ></canvas>
     <h1 id="fps">fps : 0</h1>
-    <h1>W : Up , D : Turn Right , A : Turn left</h1>
+    <h1>W : Up , D : Turn Right , A : Turn left , Space : shoot</h1>
     <script src="script.js"></script>
   </body>
 </html>

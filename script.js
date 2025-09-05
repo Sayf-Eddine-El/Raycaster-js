@@ -17,11 +17,10 @@ const fpsText = document.getElementById("fps");
 const canvas2 = document.getElementById("canvas2");
 const ctx2 = canvas2.getContext("2d");
 
+ctx2.imageSmoothingEnabled = false;
+
 let fps;
-
-const blockType = ["texture.png", "lucky.jpg", "barrel.png", "gun.png"];
-let loadedTexture = {};
-
+let animationFrame = "hands.png";
 canvas.width = width * row;
 canvas.height = width * column;
 
@@ -30,25 +29,55 @@ canvasHeight = (width * row) / 1.4;
 canvas2.width = canvasWidth;
 canvas2.height = canvasHeight;
 
+let playerPickups = {
+  key: 0,
+};
+
+let cellDistance = {};
+
+const blockType = [
+  "texture.png",
+  "lucky.jpg",
+  "barrel.png",
+  "gun.png",
+  "door.png",
+  "key.png",
+  "spider.png",
+  "hands.png",
+  "hands1.png",
+];
+let loadedTexture = {};
+
 let firstTime = new Date();
 
 const doublePi = Math.PI * 2;
 
 let objectArray = [
   {
-    x: 620,
-    y: 85,
+    x: 608,
+    y: 96,
     sprite: "barrel.png",
+    type: "object",
   },
   {
-    x: 90,
-    y: 300,
+    x: 96,
+    y: 224 + 64,
     sprite: "barrel.png",
+    type: "object",
   },
   {
-    x: 200,
+    x: 224,
+    y: 96,
+    sprite: "key.png",
+    type: "collectable",
+  },
+  {
+    x: 300,
     y: 90,
-    sprite: "gun.png",
+    health: 100,
+    inRange: false,
+    sprite: "spider.png",
+    type: "enemy",
   },
 ];
 
@@ -62,7 +91,7 @@ const map = [
   { type: 1, block: "texture.png" },
   { type: 1, block: "texture.png" },
   { type: 1, block: "texture.png" },
-  { type: 1, block: "lucky.jpg" },
+  { type: 1, block: "texture.png" },
   { type: 1, block: "texture.png" },
   { type: 1, block: "texture.png" },
   { type: 1, block: "texture.png" },
@@ -100,7 +129,7 @@ const map = [
   { type: 0, block: "lucky.jpg" },
   { type: 0, block: "lucky.jpg" },
   { type: 0, block: "lucky.jpg" },
-  { type: 1, block: "lucky.jpg" },
+  { type: 1, block: "texture.png" },
   { type: 0, block: "lucky.jpg" },
   { type: 1, block: "texture.png" },
   { type: 0, block: "lucky.jpg" },
@@ -109,7 +138,7 @@ const map = [
 
   // row 3
   { type: 1, block: "texture.png" },
-  { type: 0, block: "lucky.jpg" },
+  { type: 2, block: "door.png" },
   { type: 1, block: "texture.png" },
   { type: 0, block: "lucky.jpg" },
   { type: 1, block: "texture.png" },
@@ -369,6 +398,17 @@ addEventListener("keydown", (e) => {
   if (e.key == "d") {
     player.right = true;
   }
+  if (e.key == " ") {
+    for (let i = 0; i < objectArray.length; i++) {
+      if (objectArray[i]?.inRange) {
+        console.log(objectArray[i].health);
+        if (objectArray[i].health > 0) objectArray[i].health -= 5;
+        else objectArray = objectArray.filter((_, index) => i != index);
+      }
+    }
+    animationFrame = "hands1.png";
+    setTimeout(() => (animationFrame = "hands.png"), 50);
+  }
 });
 addEventListener("keyup", (e) => {
   if (e.key == "w") {
@@ -440,14 +480,27 @@ const playerCollision = () => {
         player.x + playerWidth > j * width &&
         player.x < j * width + width &&
         player.y + playerWidth > i * width &&
-        player.y < i * width + width &&
-        map[j + i * row].type == 1
+        player.y < i * width + width
       ) {
-        const radian = player.degree * (Math.PI / 180);
-        const dx = Math.cos(radian) * speed;
-        const dy = Math.sin(radian) * speed;
-        player.x -= dx;
-        player.y -= dy;
+        if (map[j + i * row].type == 1) {
+          const radian = player.degree * (Math.PI / 180);
+          const dx = Math.cos(radian) * speed;
+          const dy = Math.sin(radian) * speed;
+          player.x -= dx;
+          player.y -= dy;
+        }
+        if (map[j + i * row].type == 2) {
+          if (playerPickups.key == 1) {
+            map[j + i * row].type = 0;
+            playerPickups.key -= 1;
+          } else {
+            const radian = player.degree * (Math.PI / 180);
+            const dx = Math.cos(radian) * speed;
+            const dy = Math.sin(radian) * speed;
+            player.x -= dx;
+            player.y -= dy;
+          }
+        }
       }
     }
   }
@@ -493,7 +546,7 @@ const rayCollision = (startDeg) => {
   first_interaction_x_Y = Px + (first_interaction_y_Y - Py) / tanRad;
 
   for (let i = 0; i < row && !foundY; i++) {
-    if (collisionMap(first_interaction_x_Y, first_interaction_y_Y) == 1) {
+    if (collisionMap(first_interaction_x_Y, first_interaction_y_Y) >= 1) {
       foundY = true;
       break;
     }
@@ -516,7 +569,7 @@ const rayCollision = (startDeg) => {
   first_interaction_y_X = Py + (first_interaction_x_X - Px) * tanRad;
 
   for (let i = 0; i < row && !foundX; i++) {
-    if (collisionMap(first_interaction_x_X, first_interaction_y_X) == 1) {
+    if (collisionMap(first_interaction_x_X, first_interaction_y_X) >= 1) {
       foundX = true;
       break;
     }
@@ -605,8 +658,6 @@ const updateFunc3d = () => {
 
   const rectWidth = canvasWidth / collisionArray.length;
 
-  let cellDistance = {};
-
   // wall rendering
   for (let i = 0; i < collisionArray.length; i++) {
     let img = loadedTexture[collisionArray[i].block];
@@ -626,17 +677,52 @@ const updateFunc3d = () => {
     );
   }
 
-  // Object rendering
-  for (let j = 0; j < objectArray.length; j++) {
-    let objectImage = loadedTexture[objectArray[j].sprite];
+  // sorting Object
 
-    let deg = player.degree % 360;
+  for (let j = 0; j < objectArray.length; j++) {
+    let Px = player.x + playerWidth / 2;
+    let Py = player.y + playerWidth / 2;
+
+    let Sx = objectArray[j].x;
+    let Sy = objectArray[j].y;
+    let distance = Math.sqrt(Math.pow(Sy - Py, 2) + Math.pow(Sx - Px, 2));
+
+    objectArray[j].distance = distance;
+  }
+
+  objectArray = objectArray.sort((a, b) => b.distance - a.distance);
+
+  // Object rendering
+  spriteRendering(objectArray, rectWidth);
+  // UI
+  drawUi();
+
+  // Collect items
+  collectItems();
+
+  //
+  enemyHitDetection();
+
+  for (let i = 0; i < objectArray.length; i++) {
+    if (objectArray[i].type == "enemy" && objectArray[i].distance > 30) {
+      for (let j = 0; j < width; j++) {}
+    }
+  }
+
+  requestAnimationFrame(updateFunc3d);
+};
+
+const spriteRendering = (array, rectWidth) => {
+  for (let j = 0; j < array.length; j++) {
+    let objectImage = loadedTexture[array[j].sprite];
 
     let Px = player.x + playerWidth / 2;
     let Py = player.y + playerWidth / 2;
 
-    let Sx = objectArray[j].x + width / 4;
-    let Sy = objectArray[j].y + width / 4;
+    let Sx = array[j].x;
+    let Sy = array[j].y;
+
+    let deg = player.degree % 360;
 
     let angle = (Math.atan2(Sy - Py, Sx - Px) * 180) / Math.PI;
 
@@ -649,20 +735,19 @@ const updateFunc3d = () => {
       relativeAngle -= 360;
     }
 
-    let distance = Math.sqrt(Math.pow(Sy - Py, 2) + Math.pow(Sx - Px, 2));
-
     let screenX = ((fov / 2 + relativeAngle) / fov) * canvasWidth;
 
     for (let i = 0; i <= Math.floor(width / rectWidth); i++) {
-      let sliceWidth = 15000 / distance / rectWidth / 6;
-      let stripeX = screenX - Math.floor(width / rectWidth) + sliceWidth * i;
+      let sliceWidth =
+        15000 / array[j].distance / rectWidth / Math.floor(canvasWidth / 100);
+      let stripeX = screenX - width / 2 + sliceWidth * i;
 
       let rayIndex = Math.floor(stripeX / rectWidth);
 
       if (
         stripeX >= 0 &&
         stripeX < canvasWidth &&
-        distance < cellDistance[rayIndex]
+        array[j].distance < cellDistance[rayIndex]
       ) {
         ctx2.drawImage(
           objectImage,
@@ -673,18 +758,82 @@ const updateFunc3d = () => {
           stripeX,
           canvasHeight / 2,
           sliceWidth,
-          15000 / distance
+          15000 / array[j].distance
         );
       }
     }
   }
+};
 
-  requestAnimationFrame(updateFunc3d);
+const collectItems = () => {
+  for (let i = 0; i < objectArray.length; i++) {
+    if (objectArray[i].distance < 30 && objectArray[i].type == "collectable") {
+      objectArray = objectArray.filter((_, index) => i != index);
+      playerPickups.key += 1;
+    }
+  }
+};
+
+const drawUi = () => {
+  const handImg = loadedTexture[animationFrame];
+  ctx2.drawImage(
+    handImg,
+    canvasWidth / 2 - handImg.width * 5.5,
+    canvasHeight - handImg.height * 10,
+    handImg.width * 10,
+    handImg.height * 10
+  );
+
+  const keyImage = loadedTexture["key.png"];
+  const imPos = 0 + keyImage.width / 1.5 / 2;
+  ctx2.drawImage(
+    keyImage,
+    imPos - 8,
+    imPos - 20,
+    keyImage.width,
+    keyImage.height
+  );
+
+  ctx2.fillStyle = "black";
+  ctx2.font = "30px Arial";
+  ctx2.fillText(`${playerPickups.key} key`, imPos + 64, imPos + 32);
+};
+
+const enemyHitDetection = () => {
+  for (let i = 0; i < objectArray.length; i++) {
+    if (objectArray[i].type == "enemy") {
+      let Px = player.x + playerWidth / 2;
+      let Py = player.y + playerWidth / 2;
+
+      let Ex = objectArray[i].x;
+      let Ey = objectArray[i].y;
+
+      let deg = player.degree % 360;
+
+      let angle = (Math.atan2(Ey - Py, Ex - Px) * 180) / Math.PI;
+
+      let relativeAngle = angle - deg;
+
+      if (relativeAngle < -180) {
+        relativeAngle += 360;
+      }
+      if (relativeAngle > 180) {
+        relativeAngle -= 360;
+      }
+
+      let screenX = ((fov / 2 + relativeAngle) / fov) * canvasWidth;
+
+      if (screenX > canvasWidth / 2 - 300 && screenX < canvasWidth / 2) {
+        objectArray[i].inRange = true;
+      } else {
+        objectArray[i].inRange = false;
+      }
+    }
+  }
 };
 
 // Load Images to avoid bugs
 loadImages();
-
 updateFunc();
 updateFunc3d();
 
