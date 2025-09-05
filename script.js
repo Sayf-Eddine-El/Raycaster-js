@@ -76,6 +76,7 @@ let objectArray = [
     y: 90,
     health: 100,
     inRange: false,
+    visible: true,
     sprite: "spider.png",
     type: "enemy",
   },
@@ -371,6 +372,14 @@ const map = [
   { type: 1, block: "texture.png" },
 ];
 
+let weapons = {
+  pistol: {
+    coolDown: 100,
+    damage: 25,
+    coolDownSec: 100,
+  },
+};
+
 let player = {
   x: 90,
   y: 90,
@@ -378,6 +387,7 @@ let player = {
   right: false,
   left: false,
   degree: 90,
+  weapon: weapons.pistol,
 };
 
 let collisionArray = [];
@@ -400,13 +410,23 @@ addEventListener("keydown", (e) => {
   }
   if (e.key == " ") {
     for (let i = 0; i < objectArray.length; i++) {
-      if (objectArray[i]?.inRange) {
-        console.log(objectArray[i].health);
-        if (objectArray[i].health > 0) objectArray[i].health -= 5;
-        else objectArray = objectArray.filter((_, index) => i != index);
+      if (
+        objectArray[i].type == "enemy" &&
+        objectArray[i]?.inRange &&
+        objectArray[i]?.visible &&
+        player.weapon.coolDown == player.weapon.coolDownSec
+      ) {
+        if (objectArray[i].health > 0) {
+          objectArray[i].health -= player.weapon.damage;
+          animationFrame = "hands1.png";
+          player.weapon.coolDownSec = 0;
+        }
       }
     }
-    animationFrame = "hands1.png";
+    if (player.weapon.coolDown == player.weapon.coolDownSec) {
+      animationFrame = "hands1.png";
+      player.weapon.coolDownSec = 0;
+    }
     setTimeout(() => (animationFrame = "hands.png"), 50);
   }
 });
@@ -646,6 +666,10 @@ const updateFunc = () => {
     collisionArray.push({ distance: k, side, block });
   }
 
+  if (player.weapon.coolDown != player.weapon.coolDownSec) {
+    player.weapon.coolDownSec += 5;
+  }
+
   requestAnimationFrame(updateFunc);
 };
 
@@ -700,66 +724,114 @@ const updateFunc3d = () => {
   // Collect items
   collectItems();
 
-  //
+  // See if the enemy is visible and in range
   enemyHitDetection();
 
-  for (let i = 0; i < objectArray.length; i++) {
-    if (objectArray[i].type == "enemy" && objectArray[i].distance > 30) {
-      for (let j = 0; j < width; j++) {}
-    }
-  }
+  //
+  enemyAI();
 
   requestAnimationFrame(updateFunc3d);
 };
 
 const spriteRendering = (array, rectWidth) => {
   for (let j = 0; j < array.length; j++) {
-    let objectImage = loadedTexture[array[j].sprite];
+    if (array[j]?.type == "enemy" && array[j].health > 0) {
+      let objectImage = loadedTexture[array[j].sprite];
 
-    let Px = player.x + playerWidth / 2;
-    let Py = player.y + playerWidth / 2;
+      let Px = player.x + playerWidth / 2;
+      let Py = player.y + playerWidth / 2;
 
-    let Sx = array[j].x;
-    let Sy = array[j].y;
+      let Sx = array[j].x;
+      let Sy = array[j].y;
 
-    let deg = player.degree % 360;
+      let deg = player.degree % 360;
 
-    let angle = (Math.atan2(Sy - Py, Sx - Px) * 180) / Math.PI;
+      let angle = (Math.atan2(Sy - Py, Sx - Px) * 180) / Math.PI;
 
-    let relativeAngle = angle - deg;
+      let relativeAngle = angle - deg;
 
-    if (relativeAngle < -180) {
-      relativeAngle += 360;
-    }
-    if (relativeAngle > 180) {
-      relativeAngle -= 360;
-    }
+      if (relativeAngle < -180) {
+        relativeAngle += 360;
+      }
+      if (relativeAngle > 180) {
+        relativeAngle -= 360;
+      }
 
-    let screenX = ((fov / 2 + relativeAngle) / fov) * canvasWidth;
+      let screenX = ((fov / 2 + relativeAngle) / fov) * canvasWidth;
 
-    for (let i = 0; i <= Math.floor(width / rectWidth); i++) {
-      let sliceWidth =
-        15000 / array[j].distance / rectWidth / Math.floor(canvasWidth / 100);
-      let stripeX = screenX - width / 2 + sliceWidth * i;
+      for (let i = 0; i <= Math.floor(width / rectWidth); i++) {
+        let sliceWidth =
+          15000 / array[j].distance / rectWidth / Math.floor(canvasWidth / 100);
+        let stripeX = screenX - width / 2 + sliceWidth * i;
 
-      let rayIndex = Math.floor(stripeX / rectWidth);
+        let rayIndex = Math.floor(stripeX / rectWidth);
 
-      if (
-        stripeX >= 0 &&
-        stripeX < canvasWidth &&
-        array[j].distance < cellDistance[rayIndex]
-      ) {
-        ctx2.drawImage(
-          objectImage,
-          i * rectWidth * (objectImage.width / width),
-          0,
-          rectWidth,
-          objectImage.height,
-          stripeX,
-          canvasHeight / 2,
-          sliceWidth,
-          15000 / array[j].distance
-        );
+        if (
+          stripeX >= 0 &&
+          stripeX < canvasWidth &&
+          array[j].distance < cellDistance[rayIndex]
+        ) {
+          ctx2.drawImage(
+            objectImage,
+            i * rectWidth * (objectImage.width / width),
+            0,
+            rectWidth,
+            objectImage.height,
+            stripeX,
+            canvasHeight / 2,
+            sliceWidth,
+            15000 / array[j].distance
+          );
+        }
+      }
+    } else if (array[j].type != "enemy") {
+      let objectImage = loadedTexture[array[j].sprite];
+
+      let Px = player.x + playerWidth / 2;
+      let Py = player.y + playerWidth / 2;
+
+      let Sx = array[j].x;
+      let Sy = array[j].y;
+
+      let deg = player.degree % 360;
+
+      let angle = (Math.atan2(Sy - Py, Sx - Px) * 180) / Math.PI;
+
+      let relativeAngle = angle - deg;
+
+      if (relativeAngle < -180) {
+        relativeAngle += 360;
+      }
+      if (relativeAngle > 180) {
+        relativeAngle -= 360;
+      }
+
+      let screenX = ((fov / 2 + relativeAngle) / fov) * canvasWidth;
+
+      for (let i = 0; i <= Math.floor(width / rectWidth); i++) {
+        let sliceWidth =
+          15000 / array[j].distance / rectWidth / Math.floor(canvasWidth / 100);
+        let stripeX = screenX - width / 2 + sliceWidth * i;
+
+        let rayIndex = Math.floor(stripeX / rectWidth);
+
+        if (
+          stripeX >= 0 &&
+          stripeX < canvasWidth &&
+          array[j].distance < cellDistance[rayIndex]
+        ) {
+          ctx2.drawImage(
+            objectImage,
+            i * rectWidth * (objectImage.width / width),
+            0,
+            rectWidth,
+            objectImage.height,
+            stripeX,
+            canvasHeight / 2,
+            sliceWidth,
+            15000 / array[j].distance
+          );
+        }
       }
     }
   }
@@ -778,10 +850,10 @@ const drawUi = () => {
   const handImg = loadedTexture[animationFrame];
   ctx2.drawImage(
     handImg,
-    canvasWidth / 2 - handImg.width * 5.5,
-    canvasHeight - handImg.height * 10,
-    handImg.width * 10,
-    handImg.height * 10
+    canvasWidth / 2 - handImg.width * 2,
+    canvasHeight - handImg.height * 4,
+    handImg.width * 4,
+    handImg.height * 4
   );
 
   const keyImage = loadedTexture["key.png"];
@@ -802,31 +874,74 @@ const drawUi = () => {
 const enemyHitDetection = () => {
   for (let i = 0; i < objectArray.length; i++) {
     if (objectArray[i].type == "enemy") {
-      let Px = player.x + playerWidth / 2;
-      let Py = player.y + playerWidth / 2;
+      let startX = player.x + playerWidth / 2;
+      let startY = player.y + playerWidth / 2;
+      let endX, endY;
+      let found = false;
 
-      let Ex = objectArray[i].x;
-      let Ey = objectArray[i].y;
+      const deg = (player.degree * Math.PI) / 180;
 
-      let deg = player.degree % 360;
+      for (let j = 1; j < 500 && !found; j++) {
+        endX = startX + Math.cos(deg) * j;
+        endY = startY + Math.sin(deg) * j;
 
-      let angle = (Math.atan2(Ey - Py, Ex - Px) * 180) / Math.PI;
+        const Ex = objectArray[i].x;
+        const Ey = objectArray[i].y;
 
-      let relativeAngle = angle - deg;
-
-      if (relativeAngle < -180) {
-        relativeAngle += 360;
+        if (collisionMap(endX, endY) >= 1) {
+          objectArray[i].visible = false;
+          objectArray[i].inRange = false;
+          found = true;
+          break;
+        } else if (
+          endX > Ex &&
+          endX < Ex + width &&
+          endY > Ey &&
+          endY < Ey + width
+        ) {
+          objectArray[i].visible = true;
+          objectArray[i].inRange = true;
+          found = true;
+          break;
+        }
       }
-      if (relativeAngle > 180) {
-        relativeAngle -= 360;
-      }
+    }
+  }
+};
 
-      let screenX = ((fov / 2 + relativeAngle) / fov) * canvasWidth;
+const enemyAI = () => {
+  for (let i = 0; i < objectArray.length; i++) {
+    if (objectArray[i].type == "enemy") {
+      if (objectArray[i].distance > 32 && objectArray[i].distance < 256) {
+        objectArray[i].x -= (objectArray[i].x - player.x) / 250;
+        objectArray[i].y -= (objectArray[i].y - player.y) / 250;
 
-      if (screenX > canvasWidth / 2 - 300 && screenX < canvasWidth / 2) {
-        objectArray[i].inRange = true;
-      } else {
-        objectArray[i].inRange = false;
+        for (let j = 0; j < row; j++) {
+          for (let k = 0; k < column; k++) {
+            if (
+              objectArray[i].x > k * width &&
+              objectArray[i].x < k * width + width &&
+              objectArray[i].y > j * width &&
+              objectArray[i].y < j * width + width
+            ) {
+              if (map[k + j * row].type >= 1) {
+                const radian =
+                  Math.atan(
+                    objectArray[i].y - player.y,
+                    objectArray[i].x - player.x
+                  ) *
+                  (Math.PI / 180);
+
+                const relativeAngle = radian - (player.degree * Math.PI) / 180;
+
+                const dx = Math.cos(relativeAngle) * speed;
+                const dy = Math.sin(relativeAngle) * speed;
+                objectArray[i].x -= dx;
+                objectArray[i].y -= dy;
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -834,8 +949,9 @@ const enemyHitDetection = () => {
 
 // Load Images to avoid bugs
 loadImages();
+
 updateFunc();
 updateFunc3d();
 
 // Show fps
-setInterval(() => (fpsText.textContent = `fps : ${Math.round(fps)}`), 1000);
+setInterval(() => (fpsText.textContent = `fps : ${Math.round(fps)}`), 2000);
